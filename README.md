@@ -59,6 +59,7 @@ Example of the index template:
         </body>
         </html>
 
+1. Put your assets in the `assets` directory. That directory gets copied to `generated/assets` each time you run Koekr.
 
 1. Run Koekr from the command line:
         

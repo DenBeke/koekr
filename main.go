@@ -115,6 +115,10 @@ func main() {
         log.Fatalln("The 'pages' directory doesn't exist. So no files will be generated.")
     }
     
+    /// Copy assets
+    os.RemoveAll("./generated/assets")
+    CopyDir("./assets", "./generated/assets")
+    
     
     for _,file := range findPages() {
         
