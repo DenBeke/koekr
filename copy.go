@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
-	"io"
-	"path/filepath"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 // CopyFile copies the contents of the file named src to the file named
