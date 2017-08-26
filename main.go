@@ -11,7 +11,12 @@ import (
 	"strings"
 )
 
-func findPages() (files []string) {
+type Koekr struct {
+	variables map[string]interface{}
+	t         *template.Template
+}
+
+func (k *Koekr) findPages() (files []string) {
 	searchDir := "./pages/"
 
 	_ = filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
@@ -30,7 +35,7 @@ func findPages() (files []string) {
 	return files
 }
 
-func parsePage(content string) map[string]interface{} {
+func (k *Koekr) parsePage(content string) map[string]interface{} {
 	// Split page config from page content
 	pageConfig := []string{}
 	pageContent := []string{}
@@ -62,7 +67,9 @@ func parsePage(content string) map[string]interface{} {
 	return pageConfigDecoded
 }
 
-func generatePage(file string, t *template.Template, variables map[string]interface{}) {
+func (k *Koekr) generatePage(file string) {
+
+	// t *template.Template, variables map[string]interface{}
 
 	// Read content from page
 	content, err := ioutil.ReadFile(file)
@@ -71,7 +78,8 @@ func generatePage(file string, t *template.Template, variables map[string]interf
 		return
 	}
 
-	variables["page"] = parsePage(string(content))
+	local_variables := k.variables
+	local_variables["page"] = k.parsePage(string(content))
 
 	// Create file for output
 	outputFile, err := os.Create("./generated/" + filepath.Base(file))
@@ -81,27 +89,47 @@ func generatePage(file string, t *template.Template, variables map[string]interf
 	}
 
 	// Execut template
-	if err := t.Execute(outputFile, variables); err != nil {
+	if err := k.t.Execute(outputFile, local_variables); err != nil {
 		log.Warnln("There was an error while building the html output", err)
 	}
 
 	outputFile.Close()
 }
 
-func main() {
+func (k *Koekr) GenerateAllPages() {
+	for _, file := range k.findPages() {
+		k.generatePage(file)
+	}
+}
 
-	// Parse template files
-	t, err := template.ParseFiles("index.html")
+func (k *Koekr) ParseTemplates() error {
+	var err error
+	k.t, err = template.ParseFiles("index.html")
 	if err != nil {
 		log.Fatalln("Couldn't parse template files:", err)
 	}
+	return err
+}
 
-	variables := map[string]interface{}{}
-	if _, err := toml.DecodeFile("config.toml", &variables); err != nil {
+func (k *Koekr) ParseConfig() error {
+	if _, err := toml.DecodeFile("config.toml", &k.variables); err != nil {
 		log.Fatalln("Couldn't process config file:", err)
+		return err
 	}
+	return nil
+}
 
-	// Create directories
+func main() {
+
+	k := Koekr{}
+
+	// Parse template files
+
+	k.ParseTemplates()
+
+	k.ParseConfig()
+
+	// Create directories (if not exist)
 	_ = os.Mkdir("./generated", 0755)
 
 	// Check if 'pages' directory exist
@@ -113,11 +141,7 @@ func main() {
 	os.RemoveAll("./generated/assets")
 	CopyDir("./assets", "./generated/assets")
 
-	for _, file := range findPages() {
-
-		generatePage(file, t, variables)
-
-	}
+	k.GenerateAllPages()
 
 	// Watch for changes
 	watcher, err := fsnotify.NewWatcher()
@@ -154,26 +178,21 @@ func main() {
 				}
 				if strings.Contains(event.Name, "pages") {
 					// Regenerate page
-					generatePage(event.Name, t, variables)
+					k.generatePage(event.Name)
 					break
 				}
 				if strings.Contains(event.Name, "config.toml") {
 					// Parse config again and regenerated all pages
-					if _, err := toml.DecodeFile("config.toml", &variables); err != nil {
-						log.Fatalln("Couldn't process config file:", err)
-					}
-					for _, file := range findPages() {
-						generatePage(file, t, variables)
+					err = k.ParseConfig()
+					if err == nil {
+						k.GenerateAllPages()
 					}
 				}
 				if strings.Contains(event.Name, "index.html") {
 					// Parse template again en regenerate all files
-					t, err = template.ParseFiles("index.html")
-					if err != nil {
-						log.Fatalln("Couldn't parse template files:", err)
-					}
-					for _, file := range findPages() {
-						generatePage(file, t, variables)
+					err = k.ParseTemplates()
+					if err == nil {
+						k.GenerateAllPages()
 					}
 				}
 
