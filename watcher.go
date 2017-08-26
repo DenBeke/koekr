@@ -46,14 +46,14 @@ func (k *Koekr) WatchForChanges() {
 					k.generatePage(event.Name)
 					break
 				}
-				if strings.Contains(event.Name, "config.toml") {
+				if strings.Contains(event.Name, k.config.configFile) {
 					// Parse config again and regenerated all pages
 					err = k.ParseConfig()
 					if err == nil {
 						k.GenerateAllPages()
 					}
 				}
-				if strings.Contains(event.Name, "index.html") {
+				if strings.Contains(event.Name, k.config.template) {
 					// Parse template again en regenerate all files
 					err = k.ParseTemplates()
 					if err == nil {

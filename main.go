@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/BurntSushi/toml"
 	log "github.com/sirupsen/logrus"
 	"html/template"
@@ -13,6 +14,12 @@ import (
 type Koekr struct {
 	variables map[string]interface{}
 	t         *template.Template
+
+	config struct {
+		watch      bool
+		configFile string
+		template   string
+	}
 }
 
 func (k *Koekr) findPages() (files []string) {
@@ -103,7 +110,7 @@ func (k *Koekr) GenerateAllPages() {
 
 func (k *Koekr) ParseTemplates() error {
 	var err error
-	k.t, err = template.ParseFiles("index.html")
+	k.t, err = template.ParseFiles(k.config.template)
 	if err != nil {
 		log.Fatalln("Couldn't parse template files:", err)
 	}
@@ -111,7 +118,7 @@ func (k *Koekr) ParseTemplates() error {
 }
 
 func (k *Koekr) ParseConfig() error {
-	if _, err := toml.DecodeFile("config.toml", &k.variables); err != nil {
+	if _, err := toml.DecodeFile(k.config.configFile, &k.variables); err != nil {
 		log.Fatalln("Couldn't process config file:", err)
 		return err
 	}
@@ -122,10 +129,16 @@ func main() {
 
 	k := Koekr{}
 
-	// Parse template files
+	// Command line flags
+	flag.BoolVar(&k.config.watch, "watch", false, "Watch for file changes?")
+	flag.StringVar(&k.config.configFile, "config", "config.toml", "Config file")
+	flag.StringVar(&k.config.template, "template", "index.html", "Template files")
+	flag.Parse()
 
+	// Parse template files
 	k.ParseTemplates()
 
+	// Parse config
 	k.ParseConfig()
 
 	// Create directories (if not exist)
@@ -136,12 +149,16 @@ func main() {
 		log.Fatalln("The 'pages' directory doesn't exist. So no files will be generated.")
 	}
 
-	/// Copy assets
+	// Generate the actual pages
+	k.GenerateAllPages()
+
+	// Copy assets
 	os.RemoveAll("./generated/assets")
 	CopyDir("./assets", "./generated/assets")
 
-	k.GenerateAllPages()
-
-	k.WatchForChanges()
+	// Watch for file changes
+	if k.config.watch {
+		k.WatchForChanges()
+	}
 
 }
