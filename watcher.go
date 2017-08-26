@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/howeyc/fsnotify"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
+
+	"github.com/howeyc/fsnotify"
+	log "github.com/sirupsen/logrus"
 )
 
 func (k *Koekr) WatchForChanges() {
