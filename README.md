@@ -64,6 +64,13 @@ Example of the index template:
 1. Run Koekr from the command line:
         
         $ koekr
+    
+    Use the `--watch` command line argument if you want Koekr to listen for file changes. Koekr listens for:
+        
+    * Changes in the `assets` directory (not in subdirectories at the moment)
+    * Changes in the `pages` directory (not in subdirectories at the moment)
+    * Changes to the config file
+    * Changes to the template file (only if it's a single file at the moment)
 
 1. Profit!
 
