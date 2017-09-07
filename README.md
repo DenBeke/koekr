@@ -20,7 +20,9 @@ Usage
 1. Create an `config.toml` file and add some variables to it.  
 Example of config:
 
-        site_title = "Koekr"
+        [site]
+        title = "Koekr"
+        url = "https://test.com"
         
         [copyright]
         
@@ -44,7 +46,7 @@ Example of the index template:
         <!DOCTYPE html>
         <html>
         <head>
-            <title>{{ .site_title }}</title>
+            <title>{{ .site.title }}</title>
         </head>
         <body>
         

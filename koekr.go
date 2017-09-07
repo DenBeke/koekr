@@ -2,11 +2,13 @@ package main
 
 import (
 	"html/template"
+	xmlTemplate "text/template"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/sprig"
 	"github.com/BurntSushi/toml"
 	log "github.com/sirupsen/logrus"
 )
@@ -14,6 +16,7 @@ import (
 type Koekr struct {
 	variables map[string]interface{}
 	t         *template.Template
+	files     []string
 
 	config struct {
 		watch      bool
@@ -22,7 +25,7 @@ type Koekr struct {
 	}
 }
 
-func (k *Koekr) findPages() (files []string) {
+func (k *Koekr) findPages() []string {
 	searchDir := "./pages/"
 
 	_ = filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
@@ -32,13 +35,13 @@ func (k *Koekr) findPages() (files []string) {
 			return nil
 		}
 		if fi.Mode().IsRegular() {
-			files = append(files, path)
+			k.files = append(k.files, path)
 		}
 
 		return nil
 	})
 
-	return files
+	return k.files
 }
 
 func (k *Koekr) parsePage(content string) map[string]interface{} {
@@ -103,14 +106,59 @@ func (k *Koekr) generatePage(file string) {
 }
 
 func (k *Koekr) GenerateAllPages() {
-	for _, file := range k.findPages() {
+	k.findPages()
+	for _, file := range k.files {
 		k.generatePage(file)
+	}
+	k.GenerateSitemap()
+}
+
+func (k *Koekr) GenerateSitemap() {
+	
+	sitemapTemplate := 
+`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	{{ $url := .Variables.site.url }}
+	{{ range $slug := .Slugs }}
+   <url>
+	  <loc>{{ $url }}/{{ $slug }}</loc>
+   </url>
+   {{ end }}
+</urlset>
+`
+	
+	outputFile, err := os.Create("./generated/sitemap.xml")
+	if err != nil {
+		log.Warnln("Couldn't create sitemap.xml file: ", err)
+		return
+	}
+	
+	t, err := xmlTemplate.New("sitemap").Parse(sitemapTemplate)
+	if err != nil {
+		log.Warnln("Couldn't generate sitemap:", err)
+		return
+	}
+	
+	slugs := []string{}
+	
+	for _, file := range k.files {
+		slugs = append(slugs, filepath.Base(file))
+	}
+	data := struct{
+		Slugs []string
+		Variables map[string]interface{} 
+	}{
+		Slugs: slugs,
+		Variables: k.variables,
+	}
+	if err := t.Execute(outputFile, data); err != nil {
+		log.Warnln("There was an error while building the sitemap output", err)
 	}
 }
 
 func (k *Koekr) ParseTemplates() error {
 	var err error
-	k.t, err = template.ParseFiles(k.config.template)
+	k.t, err = template.New("index.html").Funcs(sprig.FuncMap()).ParseFiles(k.config.template)
 	if err != nil {
 		log.Fatalln("Couldn't parse template files:", err)
 	}

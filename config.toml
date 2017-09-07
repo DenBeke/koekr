@@ -1,4 +1,6 @@
-site_title = "Koekr"
+[site]
+title = "Koekr"
+url = "https://test.com"
 
 [copyright]
 
