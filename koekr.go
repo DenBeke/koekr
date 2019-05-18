@@ -1,7 +1,8 @@
 package main
 
 import (
-	"html/template"
+	"bytes"
+	template "text/template"
 	xmlTemplate "text/template"
 	"io/ioutil"
 	"os"
@@ -71,7 +72,7 @@ func (k *Koekr) parsePage(content string) map[string]interface{} {
 		log.Warnln("Couldn't parse the page config: ", err)
 	}
 
-	pageConfigDecoded["content"] = template.HTML(strings.Join(pageContent, "\n"))
+	pageConfigDecoded["content"] = strings.Join(pageContent, "\n")
 
 	return pageConfigDecoded
 }
@@ -87,8 +88,25 @@ func (k *Koekr) generatePage(file string) {
 		return
 	}
 
+	pageVariables := k.parsePage(string(content))
+
 	local_variables := k.variables
-	local_variables["page"] = k.parsePage(string(content))
+	local_variables["page"] = pageVariables
+
+
+	// Process sub template. This allows page templates to be actual Go templates
+	executedContent := bytes.Buffer{}
+	localTemplate := template.New(file)
+	templateString, _ := pageVariables["content"].(string)
+	localTemplate.Parse(string(templateString))
+	err = localTemplate.Execute(&executedContent, local_variables)
+	if err != nil {
+		log.Warnln("There was an error while building the html output for a page", err)
+	}
+	pageVariables["content"] = executedContent.String()
+	local_variables["page"] = pageVariables
+
+
 
 	// Create file for output
 	outputFile, err := os.Create("./generated/" + filepath.Base(file))
@@ -158,7 +176,7 @@ func (k *Koekr) GenerateSitemap() {
 
 func (k *Koekr) ParseTemplates() error {
 	var err error
-	k.t, err = template.New("index.html").Funcs(sprig.FuncMap()).ParseFiles(k.config.template)
+	k.t, err = template.New("index.html").Funcs(template.FuncMap(sprig.FuncMap())).ParseFiles(k.config.template)
 	if err != nil {
 		log.Fatalln("Couldn't parse template files:", err)
 	}
